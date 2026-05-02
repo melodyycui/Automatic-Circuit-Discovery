@@ -93,6 +93,9 @@ experiment = TLACDCExperiment(
     verbose=True,
 )
 
+total_edges = experiment.count_no_edges()
+print(f"Total edges: {total_edges}")
+
 bar = tqdm(range(args.max_num_epochs))
 for i in bar:
     experiment.step()
@@ -143,6 +146,8 @@ for i in range(n):
     ref_log_p = torch.log_softmax(ref_pred[i, -1, :], dim=-1)
     kl_total += torch.nn.functional.kl_div(log_p, ref_log_p, log_target=True, reduction="sum").item()
 
+edge_sparsity = 1 - (n_edges / total_edges)
+print(f"[i]     Edge Sparsity: {edge_sparsity}")
 print(f"\n[i] Overall Edge Count: {n_edges}")
 print(f"[i]     KL Divergence: {kl_total/n}")
 print(f"[i]     Probability difference: {prob_diff_total/n}")

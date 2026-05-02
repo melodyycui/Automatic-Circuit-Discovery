@@ -109,6 +109,9 @@ experiment = TLACDCExperiment(
     verbose=True,
 )
 
+total_edges = experiment.count_no_edges()
+print(f"Total edges: {total_edges}")
+
 bar = tqdm(range(args.max_num_epochs))
 for i in bar:
     experiment.step()
@@ -161,6 +164,8 @@ for i in range(0, len(test_data), args.batch_size):
     acc_total += acc.item()
 
 n = len(test_data)
+edge_sparsity = 1 - (n_edges / total_edges)
+print(f"[i]     Edge Sparsity: {edge_sparsity}")
 print(f"\n[i] Overall Edge Count: {n_edges}")
 print(f"[i]     KL Divergence: {kl_total/n}")
 print(f"[i]     Logit difference: {ld_total/n}")
