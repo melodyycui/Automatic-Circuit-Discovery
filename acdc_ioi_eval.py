@@ -85,6 +85,7 @@ train_pred = pred(model, train_toks, args.device)
 
 def kl_divergence_metric(logits, full_model_logits, indices):
     indices = indices.to(logits.device)
+    full_model_logits = full_model_logits.to(logits.device)
     logits = torch.gather(logits, 1, indices.reshape(-1,1,1).repeat(1,1,logits.shape[-1])).squeeze(1)
     full_model_logits = torch.gather(full_model_logits, 1, indices.reshape(-1,1,1).repeat(1,1,full_model_logits.shape[-1])).squeeze(1).to(logits.device)
     log_probs = torch.log_softmax(logits, dim=-1)
