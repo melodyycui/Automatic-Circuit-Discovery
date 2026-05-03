@@ -14,7 +14,10 @@ from acdc.TLACDCExperiment import TLACDCExperiment
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold", "-t", default=0.001, type=float)
-    parser.add_argument("--dataset-path", "-d", default="/scratch/network/mc3803/Edge-Pruning/data/datasets/gp/")
+    parser.add_argument("--out-json-path", "-j", default=None)
+    # Change the default assignment to:
+    if args.out_json_path is None:
+        args.out_json_path = f"/content/drive/MyDrive/acdc_results/ioi-t{args.threshold}-graph.json"
     parser.add_argument("--max-train-examples", "-n", default=150, type=int)
     parser.add_argument("--batch-size", "-b", default=32, type=int)
     parser.add_argument("--max-num-epochs", "-e", default=100000, type=int)
