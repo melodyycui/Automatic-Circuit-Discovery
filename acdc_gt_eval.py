@@ -104,6 +104,10 @@ for i in bar:
     if experiment.current_node is None:
         break
 
+# After experiment finishes
+edges = experiment.corr.all_edges()
+print(type(edges))
+print(list(edges.items())[:3])
 experiment.save_edges(args.out_pickle_path_final)
 n_edges = experiment.count_no_edges()
 
