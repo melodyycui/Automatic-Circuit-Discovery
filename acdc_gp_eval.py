@@ -80,7 +80,6 @@ metric = lambda logits: kl_metric(logits, train_pred)
 import os
 os.makedirs("results/gp-sweep", exist_ok=True)
 
-model.reset_hooks()
 experiment = TLACDCExperiment(
     model=model,
     ds=train_toks,
@@ -105,8 +104,6 @@ for i in bar:
 
 experiment.save_edges(args.out_pickle_path_final)
 n_edges = experiment.count_no_edges()
-
-model.reset_hooks()
 
 # Evaluate on test set
 test_data = dataset["test"]

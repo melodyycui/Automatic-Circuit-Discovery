@@ -123,8 +123,6 @@ for i in bar:
 experiment.save_edges(args.out_pickle_path_final)
 n_edges = experiment.count_no_edges()
 
-model.reset_hooks()
-
 # Evaluate on test set
 test_data = dataset["test"]
 if args.max_test_examples < len(test_data):
