@@ -1,5 +1,5 @@
 """
-ACDC for Greater Than (GT) with evaluation metrics.
+ACDC for GT - finds circuit and saves to JSON.
 """
 import torch
 from tqdm import tqdm
@@ -8,28 +8,25 @@ import json
 import random
 import argparse
 import pickle
-from scipy.stats import kendalltau
 from transformer_lens.HookedTransformer import HookedTransformer
 from acdc.TLACDCExperiment import TLACDCExperiment
+
+TOTAL_EDGES = 32923
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold", "-t", default=0.001, type=float)
-    parser.add_argument("--out-json-path", "-j", default=None)
-    # Change the default assignment to:
-    if args.out_json_path is None:
-        args.out_json_path = f"/content/drive/MyDrive/acdc_results/ioi-t{args.threshold}-graph.json"
+    parser.add_argument("--dataset-path", "-d", default="/content/drive/MyDrive/acdc_datasets/gt")
     parser.add_argument("--max-train-examples", "-n", default=150, type=int)
-    parser.add_argument("--batch-size", "-b", default=32, type=int)
     parser.add_argument("--max-num-epochs", "-e", default=100000, type=int)
     parser.add_argument("--device", "-D", default=("cuda" if torch.cuda.is_available() else "cpu"))
     parser.add_argument("--out-json-path", "-j", default=None)
     parser.add_argument("--out-pickle-path-final", "-f", default=None)
     args = parser.parse_args()
     if args.out_json_path is None:
-        args.out_json_path = f"results/gt-sweep/gt-t{args.threshold}-graph.json"
+        args.out_json_path = f"/content/drive/MyDrive/acdc_results/gt-t{args.threshold}-graph.json"
     if args.out_pickle_path_final is None:
-        args.out_pickle_path_final = f"results/gt-sweep/gt-t{args.threshold}-graph.pkl"
+        args.out_pickle_path_final = f"/content/drive/MyDrive/acdc_results/gt-t{args.threshold}-graph.pkl"
     return args
 
 args = parse_args()
@@ -82,7 +79,7 @@ def kl_metric(logits, full_model_logits):
 metric = lambda logits: kl_metric(logits, train_pred)
 
 import os
-os.makedirs("results/gt-sweep", exist_ok=True)
+os.makedirs("/content/drive/MyDrive/acdc_results", exist_ok=True)
 
 model.reset_hooks()
 experiment = TLACDCExperiment(
@@ -96,9 +93,6 @@ experiment = TLACDCExperiment(
     verbose=True,
 )
 
-total_edges = experiment.count_no_edges()
-print(f"Total edges: {total_edges}")
-
 bar = tqdm(range(args.max_num_epochs))
 for i in bar:
     experiment.step()
@@ -107,53 +101,53 @@ for i in bar:
     if experiment.current_node is None:
         break
 
-# After experiment finishes
-edges = experiment.corr.all_edges()
-print(type(edges))
-print(list(edges.items())[:3])
 experiment.save_edges(args.out_pickle_path_final)
 n_edges = experiment.count_no_edges()
+edge_sparsity = 1 - (n_edges / TOTAL_EDGES)
 
-# Evaluate on test set
-test_data = dataset["test"]
-test_sentences = [test_data[i]['prefix'] for i in range(len(test_data))]
-test_corr_sentences = [test_data[i]['corr_prefix'] for i in range(len(test_data))]
-test_digits = [int(test_data[i]['digits']) for i in range(len(test_data))]
-test_toks = tokenizer(test_sentences, return_tensors="pt", padding=True).input_ids
+print(f"[i] Overall Edge Count: {n_edges}")
+print(f"[i] Edge Sparsity: {edge_sparsity}")
 
-all_digit_tokens = torch.LongTensor([tokenizer.encode("{:02d}".format(i))[0] for i in range(100)])
+graph = experiment.save_subgraph(return_it=True)
 
-circuit_pred = pred(model, test_toks, args.device)  # hooks still active
+good_graph = []
+good_graph_extra = []
+for to_name, to_idx, from_name, from_idx in graph:
+    to_parts = to_name.split(".")
+    from_parts = [from_name] if "." not in from_name else from_name.split(".")
+    if from_parts[0] in ["hook_embed", "hook_pos_embed"]:
+        continue
+    to_layer_num = int(to_parts[1])
+    from_layer_num = int(from_parts[1])
+    if to_parts[2] == "attn":
+        good_graph_extra.append({"from": from_name, "to": to_name})
+        continue
+    elif to_parts[2] == "hook_mlp_out":
+        good_graph_extra.append({"from": from_name, "to": to_name})
+        continue
+    elif to_parts[2] == "hook_resid_post":
+        to_name = "resid_post"
+    elif to_parts[2] == "hook_mlp_in":
+        to_name = f"mlp.{to_layer_num}"
+    elif to_parts[2] == "hook_q_input":
+        to_name = f"head.{to_layer_num}.{to_idx[2]}.q"
+    elif to_parts[2] == "hook_k_input":
+        to_name = f"head.{to_layer_num}.{to_idx[2]}.k"
+    elif to_parts[2] == "hook_v_input":
+        to_name = f"head.{to_layer_num}.{to_idx[2]}.v"
+    else:
+        continue
+    if from_parts[2] == "attn":
+        from_name = f"head.{from_layer_num}.{from_idx[2]}"
+    elif from_parts[2] == "hook_mlp_out":
+        from_name = f"mlp.{from_layer_num}"
+    elif from_parts[2] == "hook_resid_pre":
+        good_graph_extra.append({"from": from_name, "to": to_name})
+        continue
+    else:
+        continue
+    good_graph.append({"from": from_name, "to": to_name})
 
-model_copy = HookedTransformer.from_pretrained('gpt2', center_writing_weights=False, center_unembed=False, fold_ln=False, device=args.device)
-model_copy.set_use_hook_mlp_in(True)
-model_copy.set_use_split_qkv_input(True)
-model_copy.set_use_attn_result(True)
-ref_pred = pred(model_copy, test_toks, args.device)
-
-kl_total = 0
-prob_diff_total = 0
-kt_total = 0
-n = len(test_data)
-
-for i in range(n):
-    circuit_logits = circuit_pred[i, -1, all_digit_tokens]
-    ref_logits = ref_pred[i, -1, all_digit_tokens]
-    
-    probs = torch.softmax(circuit_logits, dim=-1)
-    ref_probs = torch.softmax(ref_logits, dim=-1)
-    
-    d = test_digits[i]
-    prob_diff_total += (probs[d+1:].sum() - probs[:d].sum()).item()
-    kt_total += kendalltau(probs.numpy(), ref_probs.numpy()).correlation
-    
-    log_p = torch.log_softmax(circuit_pred[i, -1, :], dim=-1)
-    ref_log_p = torch.log_softmax(ref_pred[i, -1, :], dim=-1)
-    kl_total += torch.nn.functional.kl_div(log_p, ref_log_p, log_target=True, reduction="sum").item()
-
-edge_sparsity = 1 - (n_edges / total_edges)
-print(f"[i]     Edge Sparsity: {edge_sparsity}")
-print(f"\n[i] Overall Edge Count: {n_edges}")
-print(f"[i]     KL Divergence: {kl_total/n}")
-print(f"[i]     Probability difference: {prob_diff_total/n}")
-print(f"[i]     Kendall's Tau: {kt_total/n}")
+json.dump({"original": good_graph, "extra": good_graph_extra}, open(args.out_json_path, "w+"), indent=4)
+print(f"Saved circuit to {args.out_json_path}")
+print(f"No. edges: {len(good_graph)}")
