@@ -1,6 +1,7 @@
 """
-ACDC for GT - finds circuit and saves to JSON.
+ACDC for GP - finds circuit and saves to JSON.
 """
+import os
 import torch
 from tqdm import tqdm
 from datasets import load_from_disk
@@ -16,7 +17,7 @@ TOTAL_EDGES = 32923
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threshold", "-t", default=0.001, type=float)
-    parser.add_argument("--dataset-path", "-d", default="/content/drive/MyDrive/acdc_datasets/gp")
+    parser.add_argument("--dataset-path", "-d", default="/scratch/network/mc3803/Edge-Pruning/data/datasets/gp")
     parser.add_argument("--max-train-examples", "-n", default=150, type=int)
     parser.add_argument("--max-num-epochs", "-e", default=100000, type=int)
     parser.add_argument("--device", "-D", default=("cuda" if torch.cuda.is_available() else "cpu"))
@@ -24,10 +25,9 @@ def parse_args():
     parser.add_argument("--out-pickle-path-final", "-f", default=None)
     args = parser.parse_args()
     if args.out_json_path is None:
-        args.out_json_path = f"/content/drive/MyDrive/acdc_results/gp-t{args.threshold}-graph.json"
+        args.out_json_path = f"/scratch/network/mc3803/Edge-Pruning/data/acdc_results/gp-t{args.threshold}-graph.json"
     if args.out_pickle_path_final is None:
-        args.out_pickle_path_final = f"/content/drive/MyDrive/acdc_results/gp-t{args.threshold}-graph.pkl"
-
+        args.out_pickle_path_final = f"/scratch/network/mc3803/Edge-Pruning/data/acdc_results/gp-t{args.threshold}-graph.pkl"
     return args
 
 args = parse_args()
@@ -79,8 +79,7 @@ def kl_metric(logits, full_model_logits):
 
 metric = lambda logits: kl_metric(logits, train_pred)
 
-import os
-os.makedirs("/content/drive/MyDrive/acdc_results", exist_ok=True)
+os.makedirs(os.path.dirname(args.out_json_path), exist_ok=True)
 
 model.reset_hooks()
 experiment = TLACDCExperiment(
