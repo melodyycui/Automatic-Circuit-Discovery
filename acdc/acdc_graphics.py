@@ -1,3 +1,4 @@
+from __future__ import annotations
 import wandb
 import os
 from collections import defaultdict
@@ -19,7 +20,10 @@ import networkx as nx
 from acdc.TLACDCCorrespondence import TLACDCCorrespondence
 from acdc.TLACDCInterpNode import TLACDCInterpNode
 from acdc.acdc_utils import EdgeType
-import pygraphviz as pgv
+try:
+	import pygraphviz as pgv
+except ImportError:
+	pgv = None
 from pathlib import Path
 
 EDGE_TYPE_COLORS = {
