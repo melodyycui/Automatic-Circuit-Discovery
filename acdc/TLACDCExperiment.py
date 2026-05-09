@@ -654,12 +654,15 @@ class TLACDCExperiment:
             self.remove_redundant_node(self.current_node)
 
         if is_this_node_used and self.current_node.incoming_edge_type.value != EdgeType.PLACEHOLDER.value:
-            fname = f"ims/img_new_{self.step_idx}.png"
-            show(
-                self.corr,
-                fname=fname,
-                show_full_index=self.show_full_index,
-            )
+            try:
+                fname = f"ims/img_new_{self.step_idx}.png"
+                show(
+                    self.corr,
+                    fname=fname,
+                    show_full_index=self.show_full_index,
+                )
+            except Exception:
+                pass
             if self.using_wandb:
                 try:
                     wandb.log(
