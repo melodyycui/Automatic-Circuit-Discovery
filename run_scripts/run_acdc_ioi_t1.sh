@@ -1,16 +1,13 @@
 #!/bin/bash
-
 THRESHOLD=0.001
 ACDC_REPO=/scratch/network/mc3803/Automatic-Circuit-Discovery
 EDGE_REPO=/scratch/network/mc3803/Edge-Pruning
 DATASET=$EDGE_REPO/data/datasets/ioi-t1
 JSON_OUT=$EDGE_REPO/data/acdc_results/ioi_t1-t${THRESHOLD}-graph.json
 CKPT_OUT=$EDGE_REPO/data/acdc_checkpoints/ioi_t1-t${THRESHOLD}
-
 mkdir -p $EDGE_REPO/data/acdc_results
 mkdir -p $CKPT_OUT
 mkdir -p $EDGE_REPO/joblog
-
 sbatch --partition=gpu --gres=gpu:1 --mem=32G --time=12:00:00 --constraint=gpu80 \
     --job-name=acdc_ioi_t1 \
     --output=$EDGE_REPO/joblog/acdc_ioi_t1_t${THRESHOLD}_%j.out \
@@ -34,4 +31,5 @@ sbatch --partition=gpu --gres=gpu:1 --mem=32G --time=12:00:00 --constraint=gpu80
     echo '[Step 3] Evaluating circuit...' && \
     python $EDGE_REPO/src/eval/eval_acdc_ioi_t1.py \
         --acdc-json-path $JSON_OUT \
+        --model-path $CKPT_OUT \
         --data-path $DATASET"
